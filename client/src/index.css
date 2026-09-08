@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: #8b5cf6;
+}
+
+* { font-family: "Outfit", sans-serif; }
+html, body, #root { width: 100%; height: 100%; margin: 0; }
+body { overflow: hidden; background: #f8f8fb; }
+button, input, textarea { font: inherit; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #c7c4d1; border-radius: 999px; }
+.dark ::-webkit-scrollbar-thumb { background: #4a4655; }

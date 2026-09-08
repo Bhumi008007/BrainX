@@ -1,0 +1,13 @@
+# Dependencies
+client/node_modules/
+server/node_modules/
+
+# Environment files - DO NOT upload secrets
+client/.env
+server/.env
+
+# Build output
+client/dist/
+
+# Logs
+*.log
