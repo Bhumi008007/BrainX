@@ -137,10 +137,12 @@ app.post(
         return res
           .status(400)
           .json({
+
             success: false,
 
             message:
               "Please enter a message.",
+
           });
 
       }
@@ -158,12 +160,14 @@ app.post(
         return res
           .status(402)
           .json({
+
             success: false,
 
             noCredits: true,
 
             message:
               "You do not have enough credits. Please purchase more credits.",
+
           });
 
       }
@@ -176,32 +180,120 @@ app.post(
 
 
       // --------------------------------------
-      // GEMINI REQUEST
+      // GEMINI REQUEST WITH RETRY
       // --------------------------------------
 
-      const response =
-        await ai.models.generateContent({
+      let response = null;
 
-          model:
-            "gemini-3.6-flash",
+      const MAX_RETRIES = 3;
 
-          contents:
-            prompt,
 
-          config: {
+      for (
+        let attempt = 1;
+        attempt <= MAX_RETRIES;
+        attempt++
+      ) {
 
-            systemInstruction:
-              "You are BrainX, an intelligent AI assistant. " +
-              "Answer the user's questions clearly and accurately. " +
-              "Use simple explanations when appropriate.",
+        try {
 
-          },
+          console.log(
+            `Gemini request attempt ${attempt}/${MAX_RETRIES}`
+          );
 
-        });
 
+          response =
+            await ai.models.generateContent({
+
+              model:
+                "gemini-3.6-flash",
+
+              contents:
+                prompt,
+
+              config: {
+
+                systemInstruction:
+                  "You are BrainX, an intelligent AI assistant. " +
+                  "Answer the user's questions clearly and accurately. " +
+                  "Use simple explanations when appropriate.",
+
+              },
+
+            });
+
+
+          // Successful response
+          break;
+
+        } catch (geminiError) {
+
+          console.error(
+            `Gemini attempt ${attempt} failed:`,
+            geminiError?.message ||
+            geminiError
+          );
+
+
+          const isTemporaryError =
+
+            geminiError?.status === 503 ||
+
+            geminiError?.message
+              ?.includes("503") ||
+
+            geminiError?.message
+              ?.includes("UNAVAILABLE") ||
+
+            geminiError?.message
+              ?.includes("high demand");
+
+
+          // Stop if it is not a temporary error
+          // or all retries have been used
+          if (
+            !isTemporaryError ||
+            attempt === MAX_RETRIES
+          ) {
+
+            throw geminiError;
+
+          }
+
+
+          // Retry delay
+          // Attempt 1 -> wait 2 seconds
+          // Attempt 2 -> wait 4 seconds
+
+          const delay =
+            attempt * 2000;
+
+
+          console.log(
+            `Gemini is busy. Retrying in ${delay / 1000} seconds...`
+          );
+
+
+          await new Promise(
+            (resolve) =>
+
+              setTimeout(
+                resolve,
+                delay
+              )
+
+          );
+
+        }
+
+      }
+
+
+      // --------------------------------------
+      // GET AI RESPONSE
+      // --------------------------------------
 
       const aiReply =
-        response.text;
+        response?.text;
 
 
       if (!aiReply) {
@@ -261,14 +353,36 @@ app.post(
       );
 
 
+      const isGeminiBusy =
+
+        error?.status === 503 ||
+
+        error?.message
+          ?.includes("503") ||
+
+        error?.message
+          ?.includes("UNAVAILABLE") ||
+
+        error?.message
+          ?.includes("high demand");
+
+
       return res
-        .status(500)
+        .status(
+          isGeminiBusy
+            ? 503
+            : 500
+        )
         .json({
 
           success: false,
 
           message:
-            "BrainX could not generate an AI response. Please try again.",
+            isGeminiBusy
+
+              ? "BrainX AI is currently busy. Please try again in a few seconds."
+
+              : "BrainX could not generate an AI response. Please try again.",
 
         });
 
@@ -478,6 +592,7 @@ app.post(
 
 app.listen(
   PORT,
+  "0.0.0.0",
   () => {
 
     console.log(
